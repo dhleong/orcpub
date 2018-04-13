@@ -2194,21 +2194,19 @@
             (str nm "-" amount))]])))
 
 (defn actions-section [id title icon-name actions]
-  (when (seq actions)
+  (when-let [actions (when (seq actions)
+                       (sort-by :name actions))]
     (display-section
       title
       icon-name
       [:div.f-s-14.l-h-19
-       (doall
-         (map
-           (fn [{{:keys [units amount]} :frequency nm :name :as action}]
-             ^{:key action}
-             [:p.m-t-10
-              [:span.f-w-600.i nm "."]
-              [:span.f-w-n.m-l-10 (common/sentensize (disp/action-description action))]
-              (when (and amount units)
-                (actions-indicators id nm units amount))])
-           (sort-by :name actions)))])))
+       (for [{{:keys [units amount]} :frequency nm :name :as action} actions]
+         ^{:key action}
+         [:p.m-t-10
+          [:span.f-w-600.i nm "."]
+          [:span.f-w-n.m-l-10 (common/sentensize (disp/action-description action))]
+          (when (and amount units)
+            [actions-indicators id nm units amount])])])))
 
 (defn prof-name [prof-map prof-kw]
   (or (-> prof-kw prof-map :name) (common/kw-to-name prof-kw)))
@@ -2247,14 +2245,13 @@
    :margin-top 0})
 
 (defn hit-dice-section-2 [id]
-  (let [levels @(subscribe [::char/levels id])]
+  (let [hit-dice @(subscribe [::char/hit-dice id])]
     (basic-section "Hit Dice"
                    nil
-                   (s/join
-                    " / "
-                    (map
-                     (fn [{:keys [class-level hit-die]}] (str class-level "d" hit-die))
-                     (vals levels))))))
+                   (->> hit-dice
+                        (map (fn [{:keys [n die]}]
+                               (str n "d" die)))
+                        (s/join " / ")))))
 
 (defn set-current-hit-points-fn [id]
   #(dispatch [::char/set-current-hit-points
@@ -3121,11 +3118,10 @@
       [hit-points-section-2 id]
       [speed-section-2 id]
       [initiative-section-2 id]]
-     (if (or non-standard-crits?
-             non-standard-attack-number?)
+     (when (or non-standard-crits?
+               non-standard-attack-number?)
        [:div.flex.justify-cont-s-a.t-a-c
         [critical-hits-section-2 id]
-        [hit-dice-section-2 id]
         [number-of-attacks-section-2 id]])
      [:div.m-t-30
       [attacks-section id]]
@@ -3160,6 +3156,12 @@
         condition-immunities @(subscribe [::char/condition-immunities id])
         immunities @(subscribe [::char/immunities id])
         actions @(subscribe [::char/actions id])
+        hit-dice (->> @(subscribe [::char/hit-dice id])
+                      (map (fn [{:keys [class-name n die]}]
+                             {:name (str class-name " Dice")
+                              :description (str "d" die)
+                              :frequency (units/long-rests
+                                           n)})))
         bonus-actions @(subscribe [::char/bonus-actions id])
         reactions @(subscribe [::char/reactions id])
         traits @(subscribe [::char/traits id])
@@ -3194,6 +3196,7 @@
           {:on-click (make-event-handler ::char/new-turn id)}
           "new turn"])]
       [attacks-section id]
+      [actions-section id "Hit Dice" "rolling-dices" hit-dice]
       [actions-section id "Actions" "beams-aura" actions]
       [actions-section id "Bonus Actions" "run" bonus-actions]
       [actions-section id "Reactions" "van-damme-split" reactions]

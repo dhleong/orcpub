@@ -568,6 +568,14 @@
 (defn class-hit-point-level-bonus [built-char]
   (get-prop built-char :class-hit-point-level-bonus))
 
+(defn hit-dice [built-char]
+  (->> (levels built-char)
+       vals
+       (map (fn [{:keys [class-name class-level hit-die]}]
+              {:class-name class-name
+               :n class-level
+               :die hit-die}))))
+
 (defn initiative [built-char]
   (get-prop built-char :initiative))
 
