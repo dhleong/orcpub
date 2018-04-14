@@ -3157,11 +3157,15 @@
         immunities @(subscribe [::char/immunities id])
         actions @(subscribe [::char/actions id])
         hit-dice (->> @(subscribe [::char/hit-dice id])
-                      (map (fn [{:keys [class-name n die]}]
-                             {:name (str class-name " Dice")
-                              :description (str "d" die)
+                      (group-by :die)
+                      (map (fn [[die classes]]
+                             {:name (str "d" die " hit dice")
+                              :description (str "From "
+                                                (->> classes
+                                                     (map :class-name)
+                                                     (s/join ", ")))
                               :frequency (units/long-rests
-                                           n)})))
+                                           (apply + (map :n classes)))})))
         bonus-actions @(subscribe [::char/bonus-actions id])
         reactions @(subscribe [::char/reactions id])
         traits @(subscribe [::char/traits id])
